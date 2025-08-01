@@ -22,16 +22,23 @@ public class JugadorMovimientoConMejoras : MonoBehaviour
     public float wallJumpPush = 5f;
     public float wallJumpDuration = 0.2f;
 
+    [Header("Wall Slide")]
+    public float velocidadDeslizamientoPared = -2f;
+    public bool deslizandoEnPared = false;
+
     [Header("Detección")]
     public Transform puntoSuelo;
     public float radioSuelo = 0.2f;
     public LayerMask capaSuelo;
-    public Transform ladoWall;
+    public Transform ladoWallDerecha;
+    public Transform ladoWallIzquierda;
     public float radioWall = 0.2f;
     public LayerMask capaWall;
 
     Rigidbody2D rb;
     bool enSuelo;
+    bool enWallDerecha;
+    bool enWallIzquierda;
     bool enWall;
     int wallDirection = 0;
     bool wallJumping = false;
@@ -54,8 +61,32 @@ public class JugadorMovimientoConMejoras : MonoBehaviour
         if (Input.GetButtonDown("Jump")) bufferTimer = jumpBufferTime;
         else bufferTimer -= Time.deltaTime;
 
-        enWall = puedeWallJump && Physics2D.OverlapCircle(ladoWall.position, radioWall, capaWall);
-        wallDirection = enWall ? (h > 0 ? 1 : h < 0 ? -1 : 0) : 0;
+        // Detección de pared derecha e izquierda
+        enWallDerecha = puedeWallJump && Physics2D.OverlapCircle(ladoWallDerecha.position, radioWall, capaWall);
+        enWallIzquierda = puedeWallJump && Physics2D.OverlapCircle(ladoWallIzquierda.position, radioWall, capaWall);
+        enWall = enWallDerecha || enWallIzquierda;
+        wallDirection = enWallDerecha ? 1 : enWallIzquierda ? -1 : 0;
+
+        // --- WALL SLIDE ---
+        bool sueloBajoDerecha = Physics2D.OverlapCircle(ladoWallDerecha.position + Vector3.down * radioWall, radioSuelo * 0.9f, capaSuelo);
+        bool sueloBajoIzquierda = Physics2D.OverlapCircle(ladoWallIzquierda.position + Vector3.down * radioWall, radioSuelo * 0.9f, capaSuelo);
+        bool sueloDebajo = Physics2D.OverlapCircle(puntoSuelo.position, radioSuelo, capaSuelo);
+
+        bool puedeDeslizarDerecha = enWallDerecha && !sueloBajoDerecha && !sueloDebajo;
+        bool puedeDeslizarIzquierda = enWallIzquierda && !sueloBajoIzquierda && !sueloDebajo;
+
+        // NUEVO: Si hay suelo debajo, nunca deslizar
+        if (!sueloDebajo && (puedeDeslizarDerecha || puedeDeslizarIzquierda) && !enSuelo && !wallJumping && rb.linearVelocity.y <= 0)
+        {
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, velocidadDeslizamientoPared);
+            deslizandoEnPared = true;
+        }
+        else
+        {
+            deslizandoEnPared = false;
+            if (!wallJumping)
+                rb.linearVelocity = new Vector2(h * velocidad, rb.linearVelocity.y);
+        }
 
         if (bufferTimer > 0 && coyoteTimer > 0 && puedeSaltar)
         {
@@ -66,9 +97,6 @@ public class JugadorMovimientoConMejoras : MonoBehaviour
         {
             WallJump();
         }
-
-        if (!wallJumping)
-            rb.linearVelocity = new Vector2(h * velocidad, rb.linearVelocity.y);
 
         if (rb.linearVelocity.y < 0)
             rb.gravityScale = gravedadExtraCaida;
@@ -102,10 +130,15 @@ public class JugadorMovimientoConMejoras : MonoBehaviour
             Gizmos.color = Color.green;
             Gizmos.DrawWireSphere(puntoSuelo.position, radioSuelo);
         }
-        if (ladoWall != null)
+        if (ladoWallDerecha != null)
         {
             Gizmos.color = Color.blue;
-            Gizmos.DrawWireSphere(ladoWall.position, radioWall);
+            Gizmos.DrawWireSphere(ladoWallDerecha.position, radioWall);
+        }
+        if (ladoWallIzquierda != null)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(ladoWallIzquierda.position, radioWall);
         }
     }
 }

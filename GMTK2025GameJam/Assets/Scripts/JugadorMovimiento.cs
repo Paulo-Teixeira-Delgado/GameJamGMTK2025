@@ -36,6 +36,7 @@ public class JugadorMovimientoConMejoras : MonoBehaviour
     public LayerMask capaWall;
 
     Rigidbody2D rb;
+    Animator anim;
     bool enSuelo;
     bool enWallDerecha;
     bool enWallIzquierda;
@@ -44,10 +45,12 @@ public class JugadorMovimientoConMejoras : MonoBehaviour
     bool wallJumping = false;
     float coyoteTimer;
     float bufferTimer;
+    bool saltandoAnim = false;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+        anim = GetComponent<Animator>();
     }
 
     void Update()
@@ -58,8 +61,15 @@ public class JugadorMovimientoConMejoras : MonoBehaviour
         if (enSuelo) coyoteTimer = coyoteTime;
         else coyoteTimer -= Time.deltaTime;
 
-        if (Input.GetButtonDown("Jump")) bufferTimer = jumpBufferTime;
-        else bufferTimer -= Time.deltaTime;
+        if (Input.GetButtonDown("Jump") && enSuelo)
+        {
+            bufferTimer = jumpBufferTime;
+            saltandoAnim = true; // Activar animación de salto inmediatamente
+        }
+        else
+        {
+            bufferTimer -= Time.deltaTime;
+        }
 
         // Detección de pared derecha e izquierda
         enWallDerecha = puedeWallJump && Physics2D.OverlapCircle(ladoWallDerecha.position, radioWall, capaWall);
@@ -104,11 +114,25 @@ public class JugadorMovimientoConMejoras : MonoBehaviour
             rb.gravityScale = gravedadExtraSaltoCorto;
         else
             rb.gravityScale = 1f;
+
+        // Cuando toca el suelo, desactivar animación de salto
+        if (enSuelo)
+            saltandoAnim = false;
+
+        // Animator: Suelo
+        anim.SetBool("Suelo", enSuelo);
+
+        // Animator: Saltar (prioridad)
+        anim.SetBool("Saltar", saltandoAnim || !enSuelo);
+
+        // Animator: Andar (solo si no está saltando)
+        anim.SetBool("Andar", enSuelo && Mathf.Abs(h) > 0.01f && !saltandoAnim);
     }
 
     void Jump()
     {
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, fuerzaSalto);
+        saltandoAnim = true; // Activar animación de salto justo al saltar
     }
 
     void WallJump()
@@ -116,6 +140,7 @@ public class JugadorMovimientoConMejoras : MonoBehaviour
         wallJumping = true;
         Invoke(nameof(ResetWallJump), wallJumpDuration);
         rb.linearVelocity = new Vector2(-wallDirection * wallJumpPush, fuerzaSalto);
+        saltandoAnim = true; // Activar animación de salto justo al saltar de pared
     }
 
     void ResetWallJump()
